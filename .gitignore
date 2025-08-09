@@ -1,5 +1,21 @@
-node_modules
-.next
-node_modules
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+.vercel/
+.turbo/
+coverage/
+
+# Env & local config
 .env
+.env.*
+!.env.example
+
+# OS/editor
 .DS_Store
+*.log
+
+# Prisma (adjust if you keep a local sqlite)
+prisma/*.db
+prisma/*.db-journal

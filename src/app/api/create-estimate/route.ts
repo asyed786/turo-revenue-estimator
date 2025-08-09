@@ -1,7 +1,6 @@
 // src/app/api/create-estimate/route.ts
-
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "../../../lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,116 +8,79 @@ export async function POST(request: NextRequest) {
 
     const {
       userId,
-      make,
-      model,
-      year,
-      trim,
-      zipCode,
-      city,
-      state,
-      latitude,
-      longitude,
-      mileage,
-      purchasePrice,
-      monthlyFixedCosts,
-      protectionPlan,
-      deliveryRadius,
-      distanceAllowance,
-      monthlyDiscount,
-      targetMonth,
-      adrEstimate,
-      utilEstimate,
-      monthlyGross,
-      monthlyNet,
-      breakevenMonths,
-      confidence,
-      confidenceLower,
-      confidenceUpper,
-      segment,
+      // vehicle basics
+      make, model, year, trim,
+      zipCode, city, state, latitude, longitude, mileage, segment,
+
+      // assumptions / inputs
+      protectionPlan, deliveryRadius, distanceAllowance,
+      monthlyDiscount, targetMonth,
+      adrEstimate, utilEstimate,
+      baseAdr, trimAdj, ageAdj, seasonality, competition, netMultiplier,
+
+      // computed outputs
+      monthlyGross, monthlyNet, breakevenMonths,
+      confidence, confidenceLower, confidenceUpper,
       compCount,
-      baseAdr,
-      trimAdj,
-      ageAdj,
-      seasonality,
-      competition,
-      netMultiplier
     } = body;
 
     const estimate = await prisma.estimate.create({
       data: {
-        userId,
-        make,
-        model,
-        year: parseInt(year),
-        trim: trim || null,
-        zipCode,
-        city,
-        state,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
-        mileage: mileage ? parseInt(mileage) : null,
-        purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
-        monthlyFixedCosts: monthlyFixedCosts ? parseFloat(monthlyFixedCosts) : null,
-        protectionPlan: protectionPlan || 'standard',
-        deliveryRadius: deliveryRadius ? parseInt(deliveryRadius) : 25,
-        distanceAllowance: distanceAllowance ? parseInt(distanceAllowance) : 200,
-        monthlyDiscount: monthlyDiscount ? parseFloat(monthlyDiscount) : 0,
-        targetMonth: parseInt(targetMonth),
-        adrEstimate: parseFloat(adrEstimate),
-        utilEstimate: parseFloat(utilEstimate),
-        monthlyGross: parseFloat(monthlyGross),
-        monthlyNet: parseFloat(monthlyNet),
-        breakevenMonths: breakevenMonths ? parseFloat(breakevenMonths) : null,
-        confidence: parseFloat(confidence),
-        confidenceLower: parseFloat(confidenceLower),
-        confidenceUpper: parseFloat(confidenceUpper),
-        segment,
-        compCount: parseInt(compCount),
-        baseAdr: parseFloat(baseAdr),
-        trimAdj: parseFloat(trimAdj),
-        ageAdj: parseFloat(ageAdj),
-        seasonality: parseFloat(seasonality),
-        competition: parseFloat(competition),
-        netMultiplier: parseFloat(netMultiplier)
+        userId: userId ?? null,
+
+        // Keep zip inside vehicleJson for now to avoid TS mismatch
+        vehicleJson: {
+          make: make ?? null,
+          model: model ?? null,
+          year: year ? Number(year) : null,
+          trim: trim ?? null,
+          city: city ?? null,
+          state: state ?? null,
+          latitude: latitude ? Number(latitude) : null,
+          longitude: longitude ? Number(longitude) : null,
+          mileage: mileage ? Number(mileage) : null,
+          segment: segment ?? null,
+          zipCode: zipCode ?? null
+        },
+
+        assumptionsJson: {
+          protectionPlan: protectionPlan ?? "standard",
+          deliveryRadius: deliveryRadius ? Number(deliveryRadius) : 25,
+          distanceAllowance: distanceAllowance ? Number(distanceAllowance) : 200,
+          monthlyDiscount: monthlyDiscount ? Number(monthlyDiscount) : 0,
+          targetMonth: targetMonth ? Number(targetMonth) : null,
+          adrEstimate: adrEstimate ? Number(adrEstimate) : null,
+          utilEstimate: utilEstimate ? Number(utilEstimate) : null,
+          baseAdr: baseAdr ? Number(baseAdr) : null,
+          trimAdj: trimAdj ? Number(trimAdj) : null,
+          ageAdj: ageAdj ? Number(ageAdj) : null,
+          seasonality: seasonality ? Number(seasonality) : null,
+          competition: competition ? Number(competition) : null,
+          netMultiplier: netMultiplier ? Number(netMultiplier) : null,
+        },
+
+        estimateJson: {
+          monthlyGross: monthlyGross ? Number(monthlyGross) : null,
+          monthlyNet: monthlyNet ? Number(monthlyNet) : null,
+          breakevenMonths: breakevenMonths ? Number(breakevenMonths) : null,
+          confidence: confidence ? Number(confidence) : null,
+          confidenceLower: confidenceLower ? Number(confidenceLower) : null,
+          confidenceUpper: confidenceUpper ? Number(confidenceUpper) : null,
+          compCount: compCount ? Number(compCount) : null,
+        },
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true
-          }
-        }
-      }
-    });
+      include: { user: { select: { id: true, email: true } } },
+    } as any); // <-- temp cast to bypass old Prisma TS types
 
     return NextResponse.json(
-      { success: true, data: estimate, message: 'Estimate created successfully' },
+      { success: true, data: estimate, message: "Estimate created successfully" },
       { status: 200 }
     );
-  } catch (error) {
-    console.error('Error creating estimate:', error);
-
-    let errorMessage = 'An error occurred while creating the estimate';
-    let statusCode = 500;
-
-    if (error instanceof Error) {
-      if (error.message.includes('P2002')) {
-        errorMessage = 'An estimate with these details already exists';
-        statusCode = 409;
-      } else if (error.message.includes('P2003')) {
-        errorMessage = 'Invalid user reference';
-        statusCode = 400;
-      } else if (error.message.includes('P2025')) {
-        errorMessage = 'Related record not found';
-        statusCode = 404;
-      } else {
-        errorMessage = error.message;
-      }
-    }
-
+  } catch (error: any) {
+    console.error("Error creating estimate:", error);
     return NextResponse.json(
-      { success: false, error: errorMessage, message: 'Failed to create estimate' },
-      { status: statusCode }
+      { success: false, error: error?.message || "Failed to create estimate" },
+      { status: 500 }
     );
   }
 }
@@ -126,34 +88,31 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const limit = searchParams.get('limit') || '10';
-    const offset = searchParams.get('offset') || '0';
+    const userId = searchParams.get("userId") ?? undefined;
+    const limit = Number(searchParams.get("limit") ?? "10");
+    const offset = Number(searchParams.get("offset") ?? "0");
 
     const where = userId ? { userId } : {};
 
-    const estimates = await prisma.estimate.findMany({
-      where,
-      take: parseInt(limit),
-      skip: parseInt(offset),
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: {
-          select: { id: true, email: true }
-        }
-      }
-    });
-
-    const totalCount = await prisma.estimate.count({ where });
+    const [estimates, totalCount] = await Promise.all([
+      prisma.estimate.findMany({
+        where,
+        take: limit,
+        skip: offset,
+        orderBy: { createdAt: "desc" },
+        include: { user: { select: { id: true, email: true } } },
+      }),
+      prisma.estimate.count({ where }),
+    ]);
 
     return NextResponse.json(
-      { success: true, data: estimates, pagination: { total: totalCount, limit: parseInt(limit), offset: parseInt(offset) } },
+      { success: true, data: estimates, pagination: { total: totalCount, limit, offset } },
       { status: 200 }
     );
-  } catch (error) {
-    console.error('Error fetching estimates:', error);
+  } catch (error: any) {
+    console.error("Error fetching estimates:", error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch estimates', message: error instanceof Error ? error.message : 'Unknown error' },
+      { success: false, error: error?.message || "Failed to fetch estimates" },
       { status: 500 }
     );
   }
