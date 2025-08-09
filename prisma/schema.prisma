@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  name            String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  estimates       Estimate[]
+  comps           Comp[]
+  extensionTokens ExtensionToken[]
+}
+
+model Estimate {
+  id         String   @id @default(cuid())
+  userId     String
+  createdAt  DateTime @default(now())
+  protection String   @default("standard")
+  estRevenue Float
+
+  user  User           @relation(fields: [userId], references: [id])
+  comps EstimateComp[]
+
+  @@index([userId])
+}
+
+model Comp {
+  id        String   @id @default(cuid())
+  userId    String?
+  make      String
+  model     String
+  year      Int
+  createdAt DateTime @default(now())
+
+  user  User?          @relation(fields: [userId], references: [id])
+  comps EstimateComp[]
+}
+
+model EstimateComp {
+  id         String @id @default(cuid())
+  estimateId String
+  compId     String
+  source     String @default("manual")
+
+  estimate Estimate @relation(fields: [estimateId], references: [id])
+  comp     Comp     @relation(fields: [compId], references: [id])
+}
+
+model ExtensionToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
